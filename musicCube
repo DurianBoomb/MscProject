@@ -1,0 +1,333 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<title>three.js webgl - postprocessing - unreal bloom</title>
+	<meta charset="utf-8">
+	<meta name="viewport" content="width=device-width, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0">
+	<link type="text/css" rel="stylesheet" href="main.css">
+	<style>
+		#info > * {
+			max-width: 650px;
+			margin-left: auto;
+			margin-right: auto;
+		}
+	</style>
+</head>
+<body>
+
+<div id="container"></div>
+
+<div id="info">
+mikuHatsune_MusicCube
+</div>
+
+<script type="module">
+
+	import * as THREE from '../build/three.module.js';
+
+	import Stats from './jsm/libs/stats.module.js';
+	import { GUI } from './jsm/libs/dat.gui.module.js';
+
+	import { OrbitControls } from './jsm/controls/OrbitControls.js';
+	import { GLTFLoader } from './jsm/loaders/GLTFLoader.js';
+	import { EffectComposer } from './jsm/postprocessing/EffectComposer.js';
+	import { RenderPass } from './jsm/postprocessing/RenderPass.js';
+	import { UnrealBloomPass } from './jsm/postprocessing/UnrealBloomPass.js';
+
+	import { ImprovedNoise } from './jsm/math/ImprovedNoise.js';
+
+	//初始化绘制相关的变量
+	var scene, camera, controls, pointLight, stats;
+	var composer, renderer, mixer;
+//初始化param参数，这是bloom通道的参数对象
+	var params = {
+		noiseScale:1.2,
+		exposure: 1,
+		bloomStrength: 1.5,
+		bloomThreshold: 0,
+		bloomRadius: 0
+	};
+//初始化时钟与载入进html的变量
+	var clock = new THREE.Clock();
+	var container = document.getElementById( 'container' );
+//同样是和html相关的东西
+	stats = new Stats();
+	container.appendChild( stats.dom );
+//开始写关于render的东西了
+	renderer = new THREE.WebGLRenderer( { antialias: true } );//创建渲染器，设抗锯齿为真
+	renderer.setPixelRatio( window.devicePixelRatio );//设置像素比
+	renderer.setSize( window.innerWidth, window.innerHeight );//设置渲染器大小
+	// renderer.setClearColor(0xb9d3ff, 1);
+	renderer.toneMapping = THREE.ReinhardToneMapping;//设置色调映射（可能是为了移动设备等兼容性）
+	container.appendChild( renderer.domElement );//dom里的东西，我也不明白，反正写上去
+
+	scene = new THREE.Scene();//创建场景
+
+	camera = new THREE.PerspectiveCamera( 40, window.innerWidth / window.innerHeight, 1, 100 );//设置一个透视相机
+	camera.position.set( - 5, 2.5, - 3.5 );//设置相机位置
+	scene.add( camera );//把相机加入进场景
+	//鼠标控制摄像机
+	controls = new OrbitControls( camera, renderer.domElement );
+	controls.maxPolarAngle = Math.PI;
+	controls.minDistance = 1;//摄像机缩放最小距离
+	controls.maxDistance = 50;//摄像机缩放最大距离
+//设置环境光
+	scene.add( new THREE.AmbientLight( 0x404040 ) );//加入环境光
+//设置点光源
+	pointLight = new THREE.PointLight( 0xffffff, 1 );//加入点光源（颜色，光源强度
+	camera.add( pointLight );//点光源加入摄像机
+//为场景渲染器添加渲染通道
+	var renderScene = new RenderPass( scene, camera );
+//设置bloom通道
+	var bloomPass = new UnrealBloomPass( new THREE.Vector2( window.innerWidth, window.innerHeight ), 1.5, 0.4, 0.85 );//设置bloom通道属性（分辨率，强度，半径，阈值）
+	bloomPass.threshold = params.bloomThreshold;//把params对象的阈值，强度与半径传入
+	bloomPass.strength = params.bloomStrength;//强度
+	bloomPass.radius = params.bloomRadius;//半径
+
+	composer = new EffectComposer( renderer );//设置效果组合器，把render放入组合器中，effectComposer是一个加入后期处理的关键函数
+	composer.addPass( renderScene );//把场景渲染通道添加到效果组合器里
+	composer.addPass( bloomPass );//把泛光通道添加到效果组合器里
+
+
+	//绘制方块
+
+
+	var geometry = new THREE.BoxBufferGeometry( 1, 1 ,1 );
+	var scale = 1.00004;
+	var perlin = new ImprovedNoise();
+
+	var group = new THREE.Group();
+	let N = 128; //控制音频分析器返回频率数据数量
+
+	// for ( var x = 0; x < 5; x ++ ) {
+	// 	for(var y = 0; y < 5; y ++ ) {
+	// 		for(var z = 0; z < 5; z ++) {
+	// 			var noise =  0.5 *perlin.noise( x*scale +10.04 , y*scale, z*scale) * 10;
+	// 			// console.log('Perlin ' + noise);
+	// 			var color = new THREE.Color();
+	// 			// var lightness = Math.random()/2 + 0.2 ;
+	// 			var lightness = noise + 0.26 ;
+	// 			// console.log('lightness ' + noise);
+	//
+	// 			color.setHSL( 175/360, 0.551, 0);
+	// 			// color.setHSL( 175/360, 0.7, 0.7);
+	// 			var material = new THREE.MeshBasicMaterial( {
+	// 				color: color,
+	// 				transparent:true,//开启透明度
+	// 				opacity:1//设置透明度具体值
+	// 			} );
+	// 			var box = new THREE.Mesh( geometry, material );
+	// 			var interval = 0.5;
+	//
+	// 			box.position.x = noise + x * interval ;
+	// 			box.position.y = noise + y * interval;
+	// 			box.position.z = noise + z * interval;
+	// 			// box.position.x = noise ;
+	// 			// box.position.y = noise ;
+	// 			// box.position.z = noise ;
+	// 			// console.log('Perlin ' + noise);
+	// 			// box.translateX(i * 3); // 平移该网格模型
+	// 			// box.position.normalize().multiplyScalar( Math.random() * 4.0 + 2.0 );
+	// 			// box.scale.setScalar( Math.random() * Math.random() + 0.5 );
+	// 			group.add(box);
+	//
+	//
+	// 			// if ( Math.random() < 0.25 ) sphere.layers.enable( BLOOM_SCENE );
+	//
+	// 		}
+	//
+	// 	}
+	//
+	// }
+
+	// Box(0,0,0,1);
+
+	drawLoop(1,0);
+	drawLoop(1,1);
+	drawLoop(1,-1);
+	drawLoop(1,2);
+	drawLoop(1,-2);
+
+	drawLoop(2,0);
+	drawLoop(2,1);
+	drawLoop(2,-1);
+	drawLoop(2,2);
+	drawLoop(2,-2);
+
+
+
+	scene.add( group );
+
+	animate();
+
+	var analyser = null; // 声明一个分析器变量
+	var listener = new THREE.AudioListener() //监听者
+	var audio = new THREE.Audio(listener); //非位置音频对象
+	var audioLoader = new THREE.AudioLoader(); //音频加载器
+	// 加载音频文件
+	audioLoader.load('./sounds/Andante.mp3', function(AudioBuffer) {
+		audio.setBuffer(AudioBuffer); // 音频缓冲区对象关联到音频对象audio
+		audio.setLoop(true); //是否循环
+		audio.setVolume(0.5); //音量
+		audio.play(); //播放
+		// 音频分析器和音频绑定，可以实时采集音频时域数据进行快速傅里叶变换
+		analyser = new THREE.AudioAnalyser(audio,2*N);
+	});
+
+	// var mediaElement = new Audio( file );
+	// mediaElement.play();
+	// mediaElement.setBuffer(AudioBuffer); // 音频缓冲区对象关联到音频对象audio
+	// mediaElement.setLoop(true); //是否循环
+	// mediaElement.setVolume(0.5); //音量
+	// mediaElement.play(); //播放
+	// 	// 音频分析器和音频绑定，可以实时采集音频时域数据进行快速傅里叶变换
+	// 	analyser = new THREE.AudioAnalyser(audio,2*N);
+
+
+
+	//接着在animate，也就是总渲染函数里写上控制方式
+
+
+	var gui = new GUI();
+
+	gui.add( params, 'exposure', 0.1, 2 ).onChange( function ( value ) {
+
+		renderer.toneMappingExposure = Math.pow( value, 4.0 );
+
+	} );
+
+	gui.add( params, 'bloomThreshold', 0.0, 1.0 ).onChange( function ( value ) {
+
+		bloomPass.threshold = Number( value );
+
+	} );
+
+	gui.add( params, 'bloomStrength', 0.0, 3.0 ).onChange( function ( value ) {
+
+		bloomPass.strength = Number( value );
+
+	} );
+
+	gui.add( params, 'bloomRadius', 0.0, 1.0 ).step( 0.01 ).onChange( function ( value ) {
+
+		bloomPass.radius = Number( value );
+
+	} );
+
+	window.onresize = function () {
+
+		var width = window.innerWidth;
+		var height = window.innerHeight;
+
+		camera.aspect = width / height;
+		camera.updateProjectionMatrix();
+
+		renderer.setSize( width, height );
+		composer.setSize( width, height );
+
+	};
+
+
+	function animate() {
+
+		requestAnimationFrame( animate );
+
+		//音频相关
+		if (analyser) {
+			// 获得频率数据N个
+			var arr = analyser.getFrequencyData();
+			var frequency = analyser.getAverageFrequency();
+			console.log(frequency);
+			if(arr[1] >= 250){
+				console.log(arr[1]);
+			}
+
+			// console.log(group);
+			// 遍历组对象，每个网格子对象设置一个对应的频率数据
+			group.children.forEach((elem, index) => {
+				var f = arr[index];
+				var lightness = map(f,0,255
+						,0,0.9);
+				// var lightness = map(f,0,255,0,0.9);
+				// var lightness = arr[index] / 200;
+				// console.log(lightness);
+				elem.material.color.setHSL( 175/360, 0.551, lightness);
+				// opacity
+				var opacityNum = 1;
+				if(lightness <= 0.05){
+					opacityNum = 0;
+				}
+				elem.material.opacity = opacityNum;
+
+			});
+		}
+
+
+		stats.update();
+		composer.render();
+		// renderer.render();
+
+	}
+
+
+	function map(num, min1, max1, min2, max2){//num：输入的数；min1，max1：原本范围；min2，max2:需要映射的新范围
+		if(num <= min1){
+			num = min2;
+			return num;
+		}
+		if(num >= max1){
+			num = max2;
+			return num;
+		}
+		if(num > min1 || num < max1){
+			num = num / max1 * max2;
+			return num;
+		}
+	}
+
+	function Box( x, y, z, size){
+		var geometry = new THREE.BoxBufferGeometry( size, size ,size );
+		var color = new THREE.Color();
+		color.setHSL( 175/360, 0.551, 0);
+		var material = new THREE.MeshBasicMaterial( {
+			color: color,
+			transparent:true,//开启透明度
+			opacity:1//设置透明度具体值
+		} );
+		var box = new THREE.Mesh( geometry, material );
+		var noise =  0.5 *perlin.noise( x*scale +10.04 , y*scale, z*scale) * 10;
+		var interval = 0.5;
+
+
+		box.position.x = noise + x - interval;
+		box.position.y = noise + y - interval;
+		box.position.z = noise + z - interval;
+		group.add(box);
+
+	}
+
+	function drawLoop( num, z ){
+		var l = 1;
+		if(num == 1){
+			Box(0,0,z,l);
+		}
+		for(var i = num; i <= num; i++){
+			for(var k = i + num; k > 0; k--){
+				Box( i*l, (i-k)*l, z, l);
+				Box( (i-k)*l, -i*l, z, l);
+				Box( -i*l, -(i-k)*l, z, l);
+				Box( -(i-k)*l, i*l, z, l);
+			}
+		}
+
+
+
+	}
+
+
+
+</script>
+
+</body>
+
+</html>
